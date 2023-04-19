@@ -1,10 +1,10 @@
-﻿#ifndef STUN_PACKET_H
-#define STUN_PACKET_H
+﻿#ifndef STUN_PROTOCOL_H
+#define STUN_PROTOCOL_H
 
-#define WIN32_LEAN_AND_MEAN
 #include <stdio.h>
 #include <stdlib.h>
 
+#include "endpoint.h"
 #include "hex.h"
 
 namespace stun {
@@ -49,64 +49,6 @@ enum stun_vars {
   STUN_ICE_CONTROLLING = 0x802A,
 };
 
-
-
-//#define TN(id)                  \
-//  {                             \
-//    static char buf[16];        \
-//    sprintf(buf, "0x%04x", id); \
-//    return buf;                 \
-//  }
-//#define T(id)       \
-//  if (type == id)   \
-//    return #id + 5; \
-//  else
-//
-//char *ATTR_NAME(int type) {
-//  if (type == STUN_MAPPED_ADDRESS)
-//    return STUN_MAPPED_ADDRESS + 5;
-//
-//  T(STUN_MAPPED_ADDRESS);
-//  T(STUN_RESPONSE_ADDRESS);
-//  T(STUN_CHANGE_REQUEST);
-//  T(STUN_SOURCE_ADDRESS);
-//  T(STUN_CHANGED_ADDRESS);
-//  T(STUN_USERNAME);
-//  T(STUN_PASSWORD);
-//  T(STUN_MESSAGE_INTEGRITY);
-//  T(STUN_ERROR_CODE);
-//  T(STUN_UNKNOWN_ATTRIBUTES);
-//  T(STUN_REFLECTED_FROM);
-//  T(STUN_CHANNEL_NUMBER);
-//  T(STUN_LIFETIME);
-//  T(STUN_BANDWIDTH);
-//  T(STUN_PEER_ADDRESS);
-//  T(STUN_DATA);
-//  T(STUN_REALM);
-//  T(STUN_NONCE);
-//  T(STUN_RELAYED_ADDRESS);
-//  T(STUN_REQUESTED_ADDRESS_TYPE);
-//  T(STUN_REQUESTED_PROPS);
-//  T(STUN_REQUESTED_TRANSPORT);
-//  T(STUN_XOR_MAPPED_ADDRESS);
-//  T(STUN_TIMER_VAL);
-//  T(STUN_RESERVATION_TOKEN);
-//  T(STUN_XOR_REFLECTED_FROM);
-//  T(STUN_PRIORITY);
-//  T(STUN_USE_CANDIDATE);
-//  T(STUN_ICMP);
-//  T(STUN_END_MANDATORY_ATTR);
-//  T(STUN_START_EXTENDED_ATTR);
-//  T(STUN_SOFTWARE);
-//  T(STUN_ALTERNATE_SERVER);
-//  T(STUN_REFRESH_INTERVAL);
-//  T(STUN_FINGERPRINT);
-//  T(STUN_ICE_CONTROLLED);
-//  T(STUN_ICE_CONTROLLING);
-//  TN(type);
-//};
-
-
 enum {
   STUN_HEADER_SIZE = 20,
   STUN_MAGIC_COOKIE = 0x2112A442,
@@ -128,7 +70,7 @@ enum {
 char *net_to_string(ADDRESS *addr) {
   static char msg[64];
   unsigned char *ip = (unsigned char *)&addr->sin_addr.s_addr;
-  sprintf(msg, "\nmapped address: %d.%d.%d.%d:%d", ip[0], ip[1], ip[2], ip[3],
+  sprintf(msg, "%d.%d.%d.%d:%d", ip[0], ip[1], ip[2], ip[3],
           ntohs(addr->sin_port));
   return msg;
 }
@@ -220,24 +162,23 @@ int stun_parse_address(PACKET *m, ADDRESS *addr) {
   return 0;
 }
 
-int stun_parse(PACKET *m) {
+chat::Endpoint stun_parse(PACKET *m) {
   m->ofs = 0;
   int type = r16(m);
   int length = r16(m);
   int magic = r32(m);
   char tsx_id[12];
 
-  if (magic != STUN_MAGIC_COOKIE) return 0;
+  if (magic != STUN_MAGIC_COOKIE) throw chat::StunResponseParseException();
 
   rBuf(m, tsx_id, 12);
 
   int msg = type & ~0x110;
   int code = type & 0x110;
 
-  printf(" Message: %d (%d)\n", msg, code);
-  printf("  hdr: length=%d, magic=0x%x, tsx_id=%s", length, magic,  hex_string(tsx_id, 12));
-  printf("\n");
-  printf("  Attributes:\n");
+  // printf(" Message: %d (%d)\n", msg, code);
+  // printf("  hdr: length=%d, magic=0x%x, tsx_id=%s", length, magic,
+  // hex_string(tsx_id, 12)); printf("\n"); printf("  Attributes:\n");
 
   int offset = m->ofs;
 
@@ -245,8 +186,7 @@ int stun_parse(PACKET *m) {
     int attr = r16(m);
     int len = r16(m);
 
-    printf(" 0x%04x length=%d, ", attr, len);
-    // printf("  %s length=%d, ", ATTR_NAME(attr), len);
+    // printf(" 0x%04x length=%d, ", attr, len);
 
     switch (attr) {
       case STUN_MAPPED_ADDRESS:
@@ -260,15 +200,10 @@ int stun_parse(PACKET *m) {
 
         if (attr == STUN_XOR_MAPPED_ADDRESS) stun_xor_address(&addr);
 
-        printf(net_to_string(&addr));
-
-        /*if (attr == STUN_MAPPED_ADDRESS)
-          memcpy(&stun->mapped_address, &addr, sizeof(ADDRESS));
-
-        if (attr == STUN_CHANGED_ADDRESS)
-          memcpy(&stun->changed_address, &addr, sizeof(ADDRESS));*/
-
-        break;
+        // std::string endpoint = net_to_string(&addr);
+        unsigned char *ip = (unsigned char *)&addr.sin_addr.s_addr;
+        return {std::format("{:d}.{:d}.{:d}.{:d}", ip[0], ip[1], ip[2], ip[3]),
+                ntohs(addr.sin_port)};
       }
 
       case STUN_SOFTWARE:
@@ -281,14 +216,14 @@ int stun_parse(PACKET *m) {
     }
 
     printf("\n");
-    //len = round_int(len, 4);
+    // len = round_int(len, 4);
     offset += len + 4;
     m->ofs = offset;
   }
 
-  return 1;
+  throw chat::StunResponseParseException();
 }
 
 }  // namespace stun
 
-#endif  // STUN_PACKET_H
+#endif  // STUN_PROTOCOL_H

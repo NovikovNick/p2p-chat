@@ -1,5 +1,5 @@
-#ifndef __HEX_H__
-#define __HEX_H__
+#ifndef STUN_HEX_H
+#define STUN_HEX_H
 
 int hex_encode(char *dest, char *src, int len) {
   const char *table = "0123456789abcdef";
@@ -30,4 +30,4 @@ char *hex_string(char *buf, int len) {
   return msg;
 }
 
-#endif  //__HEX_H__
+#endif  // STUN_HEX_H

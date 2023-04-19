@@ -1,9 +1,9 @@
-﻿#ifndef STUN_EXCEPTION_H
-#define STUN_EXCEPTION_H
+﻿#ifndef CHAT_EXCEPTION_H
+#define CHAT_EXCEPTION_H
 #include <format>
 #include <stdexcept>
 
-namespace stun {
+namespace chat {
 
 // CONNECTION EXCEPTION
 
@@ -17,6 +17,16 @@ class UnableToReceiveException : public ConnectionException {
  public:
   UnableToReceiveException(const int error_code)
       : ConnectionException(error_code) {}
+};
+
+class StunServerUnavalableException : public std::runtime_error {
+ public:
+  StunServerUnavalableException() : std::runtime_error("") {}
+};
+
+class StunResponseParseException : public std::runtime_error {
+ public:
+  StunResponseParseException() : std::runtime_error("") {}
 };
 
 class UnableToSendException : public ConnectionException {
@@ -34,5 +44,5 @@ class ValidationException : public std::runtime_error {
             "Illegal address: {}. Should be like 127.0.0.1:80", input)) {}
 };
 
-}  // namespace stun
-#endif  // STUN_EXCEPTION_H
+}  // namespace chat
+#endif  // CHAT_EXCEPTION_H
